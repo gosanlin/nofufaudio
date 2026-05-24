@@ -16,6 +16,11 @@ An opensource Music &amp; Audio Player/Downloader like Spotify or YouTube
    * **Ubuntu / Debian:** `sudo apt install nodejs npm`
    * **Fedora:** `sudo dnf install nodejs`
 
-2. Abre una terminal en esta carpeta y ejecuta el siguiente comando:
+2. Abre una terminal en la carpeta donde este el .tar.gz y ejecuta:
+   # Cambia x por el nombre del archivo
+```bash
+ tar -xvzf x.tar.gz
+```
 ```bash
    chmod +x start.sh && ./start.sh
+```
