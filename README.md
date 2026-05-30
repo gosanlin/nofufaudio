@@ -11,10 +11,8 @@ An opensource Music &amp; Audio Player/Downloader like Spotify or YouTube
 ---
 
 ## 🐧 LINUX (CachyOS, Arch, Ubuntu, Fedora...)
-1. Asegúrate de tener **Node.js** instalado en tu sistema:
-   * **Arch / CachyOS:** `sudo pacman -S nodejs npm`
-   * **Ubuntu / Debian:** `sudo apt install nodejs npm`
-   * **Fedora:** `sudo dnf install nodejs`
+1. Asegúrate de tener las **dependencias** instaladas en tu sistema:
+   * **Arch / CachyOS:** `sudo pacman -S nodejs npm 7z python yt-dlp`
 
 2. Abre una terminal en la carpeta donde este el archivo .zip y ejecuta:
    # Cambia x por el nombre del archivo
