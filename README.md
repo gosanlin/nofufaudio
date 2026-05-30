@@ -11,7 +11,7 @@ Un reproductor de audio &amp; música de código abierto como Spotify o YouTube
 
 ---
 
-# 🐧 LINUX (CachyOS, Arch, Ubuntu, Fedora...)
+# 🐧 LINUX (CachyOS, Arch...)
 **1**. Asegúrate de tener las **dependencias** instaladas en tu sistema:
    * **Arch / CachyOS:** `sudo pacman -S nodejs npm 7z python yt-dlp`
 
