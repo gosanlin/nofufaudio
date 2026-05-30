@@ -19,7 +19,7 @@ An opensource Music &amp; Audio Player/Downloader like Spotify or YouTube
 2. Abre una terminal en la carpeta donde este el .tar.gz y ejecuta:
    # Cambia x por el nombre del archivo
 ```bash
- 7z x linux-portable-nofufaudio-1.0.1.zip
+ 7z x linux-portable-nofufaudio-1.0.2.zip
 ```
 ```bash
    chmod +x nofufaudio && ./nofufaudio
