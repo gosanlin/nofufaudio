@@ -1,10 +1,10 @@
 # nofufaudio #
 An opensource Music &amp; Audio Player/Downloader like Spotify or YouTube
-Musica sin anuncios para todos
+
+Un reproductor de audio &amp; música de código abierto como Spotify o YouTube
 
 # 🚀 ¿Cómo hacer que funcione NofufAudio?
 
----
 
 # 💻 WINDOWS
 **1**. Instalar mediante el instalador **NofufAudio Setup 1.0.0.exe** o ejecutando el archivo **NofufAudio.exe** de la versión portable.
