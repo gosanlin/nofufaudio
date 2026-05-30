@@ -16,11 +16,11 @@ An opensource Music &amp; Audio Player/Downloader like Spotify or YouTube
    * **Ubuntu / Debian:** `sudo apt install nodejs npm`
    * **Fedora:** `sudo dnf install nodejs`
 
-2. Abre una terminal en la carpeta donde este el .tar.gz y ejecuta:
+2. Abre una terminal en la carpeta donde este el archivo .zip y ejecuta:
    # Cambia x por el nombre del archivo
 ```bash
  7z x linux-portable-nofufaudio-1.0.2.zip
-```
-```bash
-   chmod +x nofufaudio && ./nofufaudio
+ cd nofufaudio
+ chmod +x install.sh
+ ./install.sh
 ```
