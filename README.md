@@ -157,6 +157,3 @@ npx electron .
 
 ---
 
-## 📄 Licencia
-
-MIT — úsalo como quieras.
