@@ -18,6 +18,15 @@ NofufAudio es un reproductor de música de escritorio que combina streaming de Y
 
 ---
 
+## 📸 Capturas
+
+<div align="center">
+  <img src="screenshots/nofufaudio-preview1.png" width="48%" />
+  <img src="screenshots/nofufaudio-preview2.png" width="48%" />
+  <img src="screenshots/nofufaudio-preview3.png" width="48%" />
+  <img src="screenshots/nofufaudio-preview4.png" width="48%" />
+</div>
+
 ## ✨ Funcionalidades
 
 ### 🎵 Reproducción
