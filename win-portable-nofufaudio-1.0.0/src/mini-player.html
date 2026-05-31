@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Nofufaudio Mini</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+
+:root {
+  --accent: #ffffff;
+  --bg: #0e0e18;
+  --surface: #1a1a28;
+  --border: rgba(255,255,255,0.09);
+  --text: #ffffff;
+  --dim: rgba(255,255,255,0.45);
+  --titlebar: rgba(0,0,0,0.25);
+}
+
+html, body {
+  width: 360px;
+  height: 112px;
+  overflow: hidden;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+#mp {
+  width: 360px;
+  height: 112px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+/* Fondo difuminado arte */
+#bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(32px) brightness(0.16) saturate(1.6);
+  transform: scale(1.2);
+  z-index: 0;
+}
+
+/* ── Barra de título con los tres botones ─── */
+#titlebar {
+  height: 26px;
+  background: var(--titlebar);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  -webkit-app-region: drag;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+#app-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+#titlebar-btns {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  -webkit-app-region: no-drag;
+}
+
+/* Botón base de la barra */
+.tb-btn {
+  width: 20px; height: 20px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.55);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  padding: 0;
+  flex-shrink: 0;
+}
+.tb-btn:hover {
+  background: rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.9);
+  border-color: rgba(255,255,255,0.22);
+}
+.tb-btn:active { transform: scale(0.9); }
+
+/* Pin activo */
+.tb-btn.pinned {
+  background: rgba(255,255,255,0.18);
+  color: var(--accent);
+  border-color: rgba(255,255,255,0.3);
+}
+
+/* Minimizar — naranja al hover */
+#btn-mini:hover { background: rgba(255,165,0,0.18); color: #ffa500; border-color: rgba(255,165,0,0.35); }
+
+/* Cerrar — rojo al hover */
+#btn-close:hover { background: rgba(255,95,87,0.22); color: #ff5f57; border-color: rgba(255,95,87,0.4); }
+
+/* ── Fila principal ──────────────────────── */
+#row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 0;
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  -webkit-app-region: drag;
+}
+
+/* Arte */
+#art {
+  width: 54px; height: 54px;
+  border-radius: 7px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+#art img { width:100%; height:100%; object-fit:cover; display:none; }
+#art-ph  { font-size:18px; opacity:0.2; }
+
+/* Info + controles apilados */
+#center {
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px 0 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  -webkit-app-region: drag;
+}
+
+#info { min-width: 0; }
+#t-title {
+  font-size: 12px; font-weight: 600;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.35;
+}
+#t-artist {
+  font-size: 11px; color: var(--dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.35;
+}
+
+/* Controles prev/play/next */
+#ctrls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  -webkit-app-region: no-drag;
+}
+.c-btn {
+  width: 26px; height: 26px;
+  border: none; background: transparent;
+  color: var(--text);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0;
+  transition: background 0.12s, transform 0.08s;
+}
+.c-btn:hover  { background: rgba(255,255,255,0.10); }
+.c-btn:active { transform: scale(0.88); }
+.c-btn.play {
+  width: 30px; height: 30px;
+  background: var(--accent); color: #000;
+}
+.c-btn.play:hover { opacity: 0.85; background: var(--accent); }
+
+/* Volumen horizontal al final */
+#vol {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+#btn-mute {
+  width: 22px; height: 22px;
+  border: none; background: transparent;
+  color: var(--dim);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border-radius: 4px; padding: 0;
+  transition: color 0.12s, background 0.12s;
+}
+#btn-mute:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+#vol-slider {
+  -webkit-appearance: none;
+  width: 56px; height: 3px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px; outline: none; cursor: pointer;
+}
+#vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px; height: 11px;
+  border-radius: 50%; background: var(--accent); cursor: pointer;
+}
+
+/* ── Barra de progreso (bottom) ─────────── */
+#prog-wrap {
+  height: 3px;
+  background: rgba(255,255,255,0.10);
+  flex-shrink: 0;
+  cursor: pointer;
+  position: relative; z-index: 1;
+  -webkit-app-region: no-drag;
+}
+#prog-fill {
+  height: 100%; background: var(--accent);
+  width: 0%; transition: width 0.5s linear;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+<div id="mp">
+  <div id="bg"></div>
+
+  <!-- Barra de título -->
+  <div id="titlebar">
+    <span id="app-label">Nofufaudio</span>
+    <div id="titlebar-btns">
+      <!-- Anclar / desanclar -->
+      <button class="tb-btn" id="btn-pin" title="Anclar ventana (bloquear posición)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16 2v4l-3 3v2l4 4h-4v7l-1 2-1-2v-7H7l4-4v-2L8 6V2h8z"/>
+        </svg>
+      </button>
+      <!-- Minimizar al tray -->
+      <button class="tb-btn" id="btn-mini" title="Minimizar widget">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="3" y="11" width="18" height="2" rx="1"/>
+        </svg>
+      </button>
+      <!-- Cerrar widget -->
+      <button class="tb-btn" id="btn-close" title="Cerrar widget">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.3 5.7a1 1 0 0 0-1.4 0L12 10.6 7.1 5.7a1 1 0 0 0-1.4 1.4L10.6 12l-4.9 4.9a1 1 0 0 0 1.4 1.4L12 13.4l4.9 4.9a1 1 0 0 0 1.4-1.4L13.4 12l4.9-4.9a1 1 0 0 0 0-1.4z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Fila principal -->
+  <div id="row">
+    <!-- Arte -->
+    <div id="art">
+      <img id="art-img" alt="">
+      <span id="art-ph">♪</span>
+    </div>
+
+    <!-- Info + controles -->
+    <div id="center">
+      <div id="info">
+        <div id="t-title">Nofufaudio</div>
+        <div id="t-artist">—</div>
+      </div>
+      <div id="ctrls">
+        <button class="c-btn" id="btn-prev" title="Anterior">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="c-btn play" id="btn-play" title="Play / Pausa">
+          <svg id="play-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="pause-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="c-btn" id="btn-next" title="Siguiente">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2V6z"/><path d="M14.5 12L6 6v12l8.5-6z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Volumen horizontal -->
+    <div id="vol">
+      <button id="btn-mute" title="Silenciar">
+        <svg id="vol-on" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+        <svg id="vol-off" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="display:none">
+          <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+          <line x1="23" y1="9" x2="17" y2="15"/>
+          <line x1="17" y1="9" x2="23" y2="15"/>
+        </svg>
+      </button>
+      <input type="range" id="vol-slider" min="0" max="100" value="80" title="Volumen">
+    </div>
+  </div>
+
+  <!-- Barra de progreso -->
+  <div id="prog-wrap"><div id="prog-fill"></div></div>
+</div>
+
+<script>
+const api = window.miniPlayerAPI;
+
+const elTitle    = document.getElementById('t-title');
+const elArtist   = document.getElementById('t-artist');
+const elArtImg   = document.getElementById('art-img');
+const elArtPh    = document.getElementById('art-ph');
+const elBg       = document.getElementById('bg');
+const elProgFill = document.getElementById('prog-fill');
+const elProgWrap = document.getElementById('prog-wrap');
+const elPlayIco  = document.getElementById('play-icon');
+const elPauseIco = document.getElementById('pause-icon');
+const elVolSl    = document.getElementById('vol-slider');
+const elVolOn    = document.getElementById('vol-on');
+const elVolOff   = document.getElementById('vol-off');
+const btnPin     = document.getElementById('btn-pin');
+
+let isMuted = false;
+let lastVol = 80;
+let isPinned = false;
+
+api.onPlayerState((s) => {
+  // Solo actualizar cada campo si viene explícitamente en el mensaje.
+  // El timeupdate envía { progress, isPlaying } sin título/artista/cover,
+  // por lo que no debemos sobreescribir esos campos con undefined.
+  if ('title' in s)  elTitle.textContent  = s.title  || 'Nofufaudio';
+  if ('artist' in s) elArtist.textContent = s.artist || '—';
+
+  if ('cover' in s) {
+    if (s.cover) {
+      elArtImg.src = s.cover;
+      elArtImg.style.display = 'block';
+      elArtPh.style.display  = 'none';
+      elBg.style.backgroundImage = `url(${s.cover})`;
+    } else {
+      elArtImg.style.display = 'none';
+      elArtPh.style.display  = 'flex';
+      elBg.style.backgroundImage = 'none';
+    }
+  }
+
+  if ('isPlaying' in s) {
+    elPlayIco.style.display  = s.isPlaying ? 'none' : '';
+    elPauseIco.style.display = s.isPlaying ? ''     : 'none';
+  }
+
+  if (typeof s.progress === 'number') {
+    elProgFill.style.width = s.progress + '%';
+    elProgFill.style.transition = ('isPlaying' in s ? s.isPlaying : elPauseIco.style.display === '') ? 'width 0.5s linear' : 'none';
+  }
+
+  if (typeof s.volume === 'number') {
+    elVolSl.value = Math.round(s.volume * 100);
+    lastVol = elVolSl.value;
+    setVolIcon(isMuted || s.volume === 0);
+  }
+
+  if (s.accentColor) {
+    document.documentElement.style.setProperty('--accent', s.accentColor);
+  }
+});
+
+function setVolIcon(muted) {
+  elVolOn.style.display  = muted ? 'none' : '';
+  elVolOff.style.display = muted ? ''     : 'none';
+}
+
+// Reproducción
+document.getElementById('btn-prev').onclick = () => api.cmd('prev');
+document.getElementById('btn-play').onclick = () => api.cmd('toggle-play');
+document.getElementById('btn-next').onclick = () => api.cmd('next');
+
+// Botones de ventana
+btnPin.onclick = () => {
+  isPinned = !isPinned;
+  btnPin.classList.toggle('pinned', isPinned);
+  btnPin.title = isPinned ? 'Desanclar ventana' : 'Anclar ventana (bloquear posición)';
+  api.pin(isPinned);
+};
+
+document.getElementById('btn-mini').onclick  = () => api.minimize();
+document.getElementById('btn-close').onclick = () => api.close();
+
+// Volumen
+document.getElementById('btn-mute').onclick = () => {
+  isMuted = !isMuted;
+  setVolIcon(isMuted);
+  api.cmd('set-volume', isMuted ? 0 : lastVol / 100);
+};
+
+elVolSl.oninput = () => {
+  const v = parseInt(elVolSl.value) / 100;
+  lastVol = elVolSl.value;
+  isMuted = false;
+  setVolIcon(false);
+  api.cmd('set-volume', v);
+};
+
+// Progreso
+elProgWrap.onclick = (e) => {
+  const r = elProgWrap.getBoundingClientRect();
+  api.cmd('seek', (e.clientX - r.left) / r.width);
+};
+</script>
+</body>
+</html>
