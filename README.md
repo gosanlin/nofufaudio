@@ -109,11 +109,11 @@ Cada aspecto visual es ajustable desde el panel de temas:
 
 ## 🚀 Instalación
 
-### Linux (Arch / CachyOS / Ubuntu / Fedora)
+### Linux (Arch / CachyOS)
 
 ```bash
 # 1. Descarga y extrae el zip
-unzip nofufaudio.zip
+unzip linux-portable-nofufaudio-1.0.3.zip
 cd nofufaudio
 
 # 2. Ejecuta el instalador (no necesita sudo — instala en ~/.local)
@@ -149,20 +149,6 @@ Ejecuta **NofufAudio Setup 1.0.0.exe** o lanza **NofufAudio.exe** desde la versi
 | **Python 3** | Importar playlists de Spotify |
 | **spotifyscraper** (pip) | Importar playlists de Spotify |
 | **music-metadata** (npm) | Leer metadata de archivos de audio locales |
-
----
-
-## 🛠️ Ejecutar desde el código fuente
-
-```bash
-git clone https://github.com/gosanlin/nofufaudio
-cd nofufaudio
-npm install
-npm install music-metadata
-pip install spotifyscraper
-# Descarga yt-dlp y colócalo en la raíz del proyecto como ./yt-dlp (Linux) o yt-dlp.exe (Windows)
-npx electron .
-```
 
 ---
 
