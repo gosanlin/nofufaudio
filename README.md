@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="logonofufaudio.png" width="82" alt="NofufAudio logo" />
+<img src="logonofufaudio.png" width="128" alt="NofufAudio logo" />
 
 # NofufAudio
 
