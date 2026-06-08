@@ -113,7 +113,7 @@ Cada aspecto visual es ajustable desde el panel de temas:
 
 ```bash
 # 1. Descarga y extrae el zip
-unzip linux-portable-nofufaudio-1.0.3.zip
+unzip linux-portable-nofufaudio-1.0.6.zip
 cd nofufaudio
 
 # 2. Ejecuta el instalador (no necesita sudo — instala en ~/.local)
