@@ -87,7 +87,6 @@ Presets incluidos: **Nightcore**, **Slowed**, **Vaporwave**, **Speed Up**
 ### 🎤 Letras
 - Obtención automática de **letras sincronizadas** (estilo karaoke, resaltado palabra a palabra)
 - Fallback a letras no sincronizadas
-- Modo **Romaji** para canciones en japonés
 - Panel de letras redimensionable, fuente y tamaño configurables
 
 ### 🎨 Personalización
