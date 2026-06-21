@@ -117,7 +117,7 @@ cd nofufaudio
 
 # 2. Ejecuta el instalador (no necesita sudo — instala en ~/.local)
 chmod +x install.sh
-bash install.sh
+./install.sh
 ```
 
 El instalador se encarga de:
