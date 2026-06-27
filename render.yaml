@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: mi-backend-musica
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    # Esto instala ffmpeg y yt-dlp automáticamente en el entorno de Render
+    envVars:
+      - key: PATH
+        value: /opt/render/project/src/bin:$PATH
