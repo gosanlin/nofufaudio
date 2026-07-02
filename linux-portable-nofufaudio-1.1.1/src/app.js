@@ -61,6 +61,17 @@ const DEFAULT_SETTINGS = {
   theme: null, // CSS vars map saved by theme panel
 };
 
+/* --font-scale nunca debe guardarse como valor crudo dentro de theme: es un
+   valor DERIVADO de --base-font-size. Si aparece guardado (p.ej. arrastrado
+   de una versión antigua de la app), lo quitamos para que deje de pisar el
+   valor correcto calculado a partir de --base-font-size. */
+function _stripStrayFontScale(theme) {
+  if (theme && typeof theme === 'object' && '--font-scale' in theme) {
+    delete theme['--font-scale'];
+  }
+  return theme;
+}
+
 function loadData() {
   try { library   = JSON.parse(localStorage.getItem(KEYS.library)   || '[]'); } catch { library=[]; }
   try { favorites = JSON.parse(localStorage.getItem(KEYS.favorites) || '[]'); } catch { favorites=[]; }
@@ -68,8 +79,27 @@ function loadData() {
   try {
     const raw = JSON.parse(localStorage.getItem(KEYS.settings) || '{}');
     settings = Object.assign({}, DEFAULT_SETTINGS, raw);
+    _stripStrayFontScale(settings.theme);
   } catch { settings = { ...DEFAULT_SETTINGS }; }
 }
+
+/* Carga `settings` desde localStorage y aplica el tema (incl. --font-scale)
+   de forma SÍNCRONA en cuanto se parsea el script, sin esperar a
+   DOMContentLoaded ni a la lectura async de la config en disco
+   (initConfigFiles). Antes, `settings` solo se poblaba dentro del handler
+   de DOMContentLoaded (vía loadData()), así que cualquier código que
+   corriera antes (p.ej. el IIFE del panel de personalización, que se
+   ejecuta al parsear el script) veía `settings.theme` vacío y no aplicaba
+   nada. Poblar `settings` aquí, de inmediato, elimina esa ventana. */
+(function applyEarlyTheme() {
+  try {
+    const rawStr = localStorage.getItem(KEYS.settings);
+    const raw = JSON.parse(rawStr || '{}');
+    settings = Object.assign({}, DEFAULT_SETTINGS, raw);
+    _stripStrayFontScale(settings.theme);
+    if (settings.theme) applyTheme(settings.theme);
+  } catch (e) {}
+})();
 
 /* ── Helpers internos para escribir/leer archivos de config ── */
 function _cfgWrite(name, data) {
@@ -147,7 +177,17 @@ function saveSettings() {
         delete cfg.theme['--bg-image'];
         delete cfg.theme['--bg-opts'];
       }
-      settings = Object.assign({}, DEFAULT_SETTINGS, cfg);
+      // Fusionar el tema en lugar de reemplazarlo: si settings.json en disco
+      // está desactualizado (p.ej. el guardado a disco es async/debounced y
+      // la app se cerró antes de completarlo), esto evita que pise campos
+      // más recientes que ya teníamos en memoria/localStorage, como
+      // --base-font-size.
+      const prevTheme = (settings && settings.theme) || {};
+      const diskTheme = (cfg.theme && typeof cfg.theme === 'object') ? cfg.theme : {};
+      const mergedTheme = _stripStrayFontScale(Object.assign({}, prevTheme, diskTheme));
+      settings = Object.assign({}, DEFAULT_SETTINGS, cfg, {
+        theme: Object.keys(mergedTheme).length ? mergedTheme : null,
+      });
       localStorage.setItem(KEYS.settings, JSON.stringify(settings));
       changed = true;
     }
@@ -368,6 +408,13 @@ document.addEventListener('DOMContentLoaded', () => {
   renderFavoritesUI();
   renderHomeView();
   showView('home');
+});
+
+/* Red de seguridad final: reaplica el tema una vez la ventana ha terminado
+   de cargar todos los recursos, por si algún paso anterior perdió alguna
+   carrera de timing. */
+window.addEventListener('load', () => {
+  if (settings.theme) applyTheme(settings.theme);
 });
 
 /* ══════════════════════════════════════
@@ -2432,6 +2479,7 @@ function applyTheme(theme) {
   if (!theme || typeof theme !== 'object') return;
   Object.entries(theme).forEach(([k,v]) => {
     if (!v || typeof v !== 'string') return;
+    if (k === '--font-scale') return; // ignorar: es un valor derivado, nunca se aplica crudo (evita que pise --base-font-size)
     if (k === '--base-font-size') {
       // Convertir px guardado → --font-scale (base 14px)
       const px = parseFloat(v) || 14;
@@ -3614,7 +3662,7 @@ if (_volNumInput) {
         try {
           const obj = JSON.parse(f.content);
           const theme = obj.theme || obj;
-          settings.theme = theme;
+          settings.theme = _stripStrayFontScale(theme);
           applyTheme(theme);
           syncControlsFromDOM();
           saveSettings();
@@ -3631,7 +3679,7 @@ if (_volNumInput) {
         try {
           const obj = JSON.parse(ev.target.result);
           const theme = obj.theme || obj;
-          settings.theme = theme;
+          settings.theme = _stripStrayFontScale(theme);
           applyTheme(theme);
           syncControlsFromDOM();
           saveSettings();
