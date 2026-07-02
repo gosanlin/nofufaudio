@@ -336,9 +336,7 @@ const dom = {
   settingShowDuration:   document.getElementById('setting-show-duration'),
   settingSpinArt:        document.getElementById('setting-spin-art'),
   settingAutoLyrics:     document.getElementById('setting-auto-lyrics'),
-  settingLyricsSize:     document.getElementById('setting-lyrics-size'),
-  settingLyricsSizeVal:  document.getElementById('setting-lyrics-size-val'),
-  settingLyricsFont:     document.getElementById('setting-lyrics-font'),
+  // settingLyricsSize/Font movidos al panel de personalización
   settingMinimizeTray:   document.getElementById('setting-minimize-tray'),
   settingCloseTray:      document.getElementById('setting-close-tray'),
   // context menu
@@ -376,17 +374,24 @@ document.addEventListener('DOMContentLoaded', () => {
    APPLY SETTINGS
 ══════════════════════════════════════ */
 function applySettings() {
+  if (settings.theme) applyTheme(settings.theme); // ← aplica tema/font-scale ya con los settings de localStorage
   // Accent color — el panel de personalización guarda en settings.theme['--accent'];
   // usar ese valor como fuente de verdad si existe, si no caer a settings.accentColor
   const accentVal = (settings.theme && settings.theme['--accent']) || settings.accentColor || '#ffffff';
   document.documentElement.style.setProperty('--accent', accentVal);
   // Lyrics size + font
-  document.documentElement.style.setProperty('--lyrics-font-size', settings.lyricsSize + 'px');
+  const _lyricsSize = settings.lyricsSize || 13;
+  document.documentElement.style.setProperty('--lyrics-font-size', _lyricsSize + 'px');
   const lt = document.querySelector('.lyrics-text');
   if (lt) {
-    lt.style.fontSize = settings.lyricsSize + 'px';
+    lt.style.fontSize = _lyricsSize + 'px';
     if (settings.lyricsFont) lt.style.fontFamily = settings.lyricsFont;
   }
+  // Sincronizar el slider y su etiqueta con el valor real cargado del disco
+  const _lsSlider = document.getElementById('tp-lyrics-size');
+  const _lsVal    = document.getElementById('tp-lyrics-size-val');
+  if (_lsSlider) { _lsSlider.value = _lyricsSize; }
+  if (_lsVal)    { _lsVal.textContent = _lyricsSize + 'px'; }
   // Show duration
   document.querySelectorAll('.qi-dur').forEach(el => {
     el.classList.toggle('hidden', !settings.showDuration);
@@ -946,9 +951,7 @@ function setupEventListeners() {
   dom.settingCrossfade.addEventListener('change', () => {
     dom.crossfadeDurationRow.style.display = dom.settingCrossfade.checked ? '' : 'none';
   });
-  dom.settingLyricsSize.addEventListener('input', () => {
-    dom.settingLyricsSizeVal.textContent = dom.settingLyricsSize.value + 'px';
-  });
+  // settingLyricsSize listener eliminado — gestionado desde panel de personalización
   document.querySelectorAll('.color-pick').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.color-pick').forEach(b => b.classList.remove('active'));
@@ -1405,6 +1408,97 @@ async function preFetchYouTubeThumbnails(tracks) {
 /* ══════════════════════════════════════
    PLAYBACK
 ══════════════════════════════════════ */
+async function resolveLazyTrack(t, { silent = false } = {}) {
+  if (!t.lazy || (t.url && t.url.startsWith('http'))) return true;
+  if (t._resolving) return t._resolving; // ya se está resolviendo, no duplicar
+
+  t._resolving = (async () => {
+    if (t.spMeta && !t.videoId) {
+      if (!silent) setYouTubeStatus('loading', `Buscando "${t.spMeta.title}"…`);
+      const cleanTitle = t.spMeta.title.replace(/\s*[\(\[](feat\.|ft\.|with\s|prod\.|remix|version|remastered|explicit)[^\)\]]*[\)\]]/gi, '').trim();
+      const primaryArtist = t.spMeta.artist.split(/[,&\/]/)[0].trim();
+      const queries = [
+        `${primaryArtist} - ${cleanTitle}`,
+        `${primaryArtist} ${cleanTitle} audio`,
+        `${t.spMeta.artist} ${t.spMeta.title}`,
+      ];
+      let bestResult = null;
+      for (const ytQuery of queries) {
+        const searchRes = await window.nofuf.searchYouTube(ytQuery);
+        if (searchRes.type === 'error' || !searchRes.results?.length) continue;
+        const titleLow = cleanTitle.toLowerCase();
+        const origTitleLow = t.spMeta.title.toLowerCase();
+        const artistLow = primaryArtist.toLowerCase();
+        const allArtistsLow = t.spMeta.artist.toLowerCase();
+        let best = null, bestScore = -1;
+        for (const r of searchRes.results) {
+          const rt = (r.title || '').toLowerCase();
+          const ru = (r.uploader || '').toLowerCase();
+          let score = 0;
+          if (rt.includes(titleLow)) score += 4;
+          else if (rt.includes(origTitleLow)) score += 3;
+          if (rt.includes(artistLow) || ru.includes(artistLow)) score += 3;
+          allArtistsLow.split(/[,&\/]/).forEach(a => {
+            const aClean = a.trim();
+            if (aClean && (rt.includes(aClean) || ru.includes(aClean))) score += 1;
+          });
+          if (rt.includes('cover') && !origTitleLow.includes('cover')) score -= 3;
+          if (rt.includes('karaoke')) score -= 5;
+          if (rt.includes('tutorial')) score -= 5;
+          if (rt.includes('reaction')) score -= 5;
+          if (rt.includes('live') && !origTitleLow.includes('live')) score -= 1;
+          if (rt.includes('remix') && !origTitleLow.includes('remix')) score -= 2;
+          if (ru.includes('vevo') || ru.includes('oficial') || ru.includes('official')) score += 2;
+          if (ru.includes(artistLow)) score += 2;
+          if (score > bestScore) { bestScore = score; best = r; }
+        }
+        if (best && bestScore >= 0) { bestResult = best; break; }
+        if (best && !bestResult) bestResult = best;
+      }
+      if (!bestResult) {
+        const lastResort = await window.nofuf.searchYouTube(`${t.spMeta.artist} ${t.spMeta.title}`);
+        if (lastResort.type === 'error' || !lastResort.results?.length) {
+          if (!silent) { setYouTubeStatus('error', 'No encontrado en YouTube'); showToast(`⚠ No encontrado: ${t.spMeta.title}`); }
+          return false;
+        }
+        bestResult = lastResort.results[0];
+      }
+      t.videoId = bestResult.id;
+      t.ytUrl = `https://www.youtube.com/watch?v=${bestResult.id}`;
+    }
+
+    if (!silent) setYouTubeStatus('loading', 'Resolviendo stream…');
+    let resolved = await window.nofuf.resolveYouTube(t.ytUrl || `https://www.youtube.com/watch?v=${t.videoId}`);
+    if (resolved.type === 'error') {
+      await new Promise(r => setTimeout(r, 1000));
+      resolved = await window.nofuf.resolveYouTube(t.ytUrl || `https://www.youtube.com/watch?v=${t.videoId}`);
+    }
+    if (resolved.type === 'error') {
+      if (!silent) { setYouTubeStatus('error', resolved.message); showToast('Error al resolver el stream: ' + resolved.message); }
+      return false;
+    }
+    t.url = resolved.streamUrl;
+    t.lazy = false;
+    if (!t.cover && resolved.thumbnail) {
+      t.cover = await window.nofuf.fetchImageBase64(resolved.thumbnail).catch(() => null);
+    }
+    saveLibrary();
+    if (!silent) setYouTubeStatus('', '');
+    return true;
+  })();
+
+  try { return await t._resolving; }
+  finally { t._resolving = null; }
+}
+
+function prefetchNextTrack() {
+  if (!queue.length || isShuffle) return; // con shuffle no sabemos cuál es la siguiente
+  const next = queue[(currentIndex + 1) % queue.length];
+  if (next && next.type === 'youtube' && next.lazy && (!next.url || !next.url.startsWith('http'))) {
+    resolveLazyTrack(next, { silent: true }).catch(() => {});
+  }
+}
+
 async function playTrack(index) {
   if (index < 0 || index >= queue.length) return;
   currentIndex = index;
@@ -1457,117 +1551,17 @@ async function playTrack(index) {
 
   // Lazy tracks: resolve stream URL on first play
   if (t.type === 'youtube' && t.lazy && (!t.url || !t.url.startsWith('http'))) {
-    // Spotify playlist tracks: search YouTube first to get a videoId
-    if (t.spMeta && !t.videoId) {
-      setYouTubeStatus('loading', `Buscando "${t.spMeta.title}"…`);
-
-      // Limpiar el título de paréntesis secundarios para mejorar la búsqueda
-      const cleanTitle = t.spMeta.title.replace(/\s*[\(\[](feat\.|ft\.|with\s|prod\.|remix|version|remastered|explicit)[^\)\]]*[\)\]]/gi, '').trim();
-      // Usar solo el primer artista para la query principal
-      const primaryArtist = t.spMeta.artist.split(/[,&\/]/)[0].trim();
-
-      // Intentar varias queries en orden de precisión
-      const queries = [
-        `${primaryArtist} - ${cleanTitle}`,
-        `${primaryArtist} ${cleanTitle} audio`,
-        `${t.spMeta.artist} ${t.spMeta.title}`,
-      ];
-
-      let bestResult = null;
-      for (const ytQuery of queries) {
-        const searchRes = await window.nofuf.searchYouTube(ytQuery);
-        if (searchRes.type === 'error' || !searchRes.results?.length) continue;
-
-        // Scoring mejorado: evalúa cada resultado según múltiples criterios
-        const titleLow     = cleanTitle.toLowerCase();
-        const origTitleLow = t.spMeta.title.toLowerCase();
-        const artistLow    = primaryArtist.toLowerCase();
-        const allArtistsLow = t.spMeta.artist.toLowerCase();
-
-        let best = null;
-        let bestScore = -1;
-
-        for (const r of searchRes.results) {
-          const rt = (r.title || '').toLowerCase();
-          const ru = (r.uploader || '').toLowerCase();
-          let score = 0;
-
-          // Coincidencia de título (limpio o completo)
-          if (rt.includes(titleLow))           score += 4;
-          else if (rt.includes(origTitleLow))  score += 3;
-
-          // Coincidencia de artista
-          if (rt.includes(artistLow) || ru.includes(artistLow)) score += 3;
-          // Artistas adicionales (feat.)
-          allArtistsLow.split(/[,&\/]/).forEach(a => {
-            const aClean = a.trim();
-            if (aClean && (rt.includes(aClean) || ru.includes(aClean))) score += 1;
-          });
-
-          // Penalizar vídeos claramente distintos
-          if (rt.includes('cover')    && !origTitleLow.includes('cover'))   score -= 3;
-          if (rt.includes('karaoke'))                                        score -= 5;
-          if (rt.includes('tutorial'))                                       score -= 5;
-          if (rt.includes('reaction'))                                       score -= 5;
-          if (rt.includes('live')     && !origTitleLow.includes('live'))     score -= 1;
-          if (rt.includes('remix')    && !origTitleLow.includes('remix'))    score -= 2;
-
-          // Bonificación por canales oficiales
-          if (ru.includes('vevo') || ru.includes('oficial') || ru.includes('official')) score += 2;
-          if (ru.includes(artistLow))                                        score += 2;
-
-          if (score > bestScore) { bestScore = score; best = r; }
-        }
-
-        if (best && bestScore >= 0) { bestResult = best; break; }
-        if (best && !bestResult) bestResult = best;
-      }
-
-      if (!bestResult) {
-        // Último recurso: búsqueda genérica sin filtros
-        const lastResort = await window.nofuf.searchYouTube(`${t.spMeta.artist} ${t.spMeta.title}`);
-        if (lastResort.type === 'error' || !lastResort.results?.length) {
-          setYouTubeStatus('error', 'No encontrado en YouTube');
-          showToast(`⚠ No encontrado: ${t.spMeta.title}`);
-          return;
-        }
-        bestResult = lastResort.results[0];
-      }
-
-      t.videoId = bestResult.id;
-      t.ytUrl   = `https://www.youtube.com/watch?v=${bestResult.id}`;
-    }
-
-    setYouTubeStatus('loading', 'Resolviendo stream…');
-    let resolved = await window.nofuf.resolveYouTube(t.ytUrl || `https://www.youtube.com/watch?v=${t.videoId}`);
-    if (resolved.type === 'error') {
-      // Reintentar una vez tras breve espera
-      await new Promise(r => setTimeout(r, 1000));
-      resolved = await window.nofuf.resolveYouTube(t.ytUrl || `https://www.youtube.com/watch?v=${t.videoId}`);
-    }
-    if (resolved.type === 'error') {
-      hideLoading();
-      setYouTubeStatus('error', resolved.message);
-      showToast('Error al resolver el stream: ' + resolved.message);
-      return;
-    }
-    // Si mientras resolvíamos el usuario cambió de canción, abortar silenciosamente
+    const ok = await resolveLazyTrack(t, { silent: false });
     if (_myGen !== _playGeneration) { hideLoading(); return; }
-    t.url = resolved.streamUrl;
-    t.lazy = false;
-    if (!t.cover && resolved.thumbnail) {
-      t.cover = await window.nofuf.fetchImageBase64(resolved.thumbnail).catch(() => null);
-      if (t.cover) {
-        dom.artImage.src = t.cover;
-        dom.artImage.style.display = 'block';
-        dom.artPlaceholder.style.display = 'none';
-        dom.barArt.style.backgroundImage = `url(${t.cover})`;
-        dom.barArt.style.backgroundSize = 'cover';
-        dom.barArt.style.backgroundPosition = 'center';
-      }
+    if (!ok) { hideLoading(); return; }
+    if (t.cover) {
+      dom.artImage.src = t.cover;
+      dom.artImage.style.display = 'block';
+      dom.artPlaceholder.style.display = 'none';
+      dom.barArt.style.backgroundImage = `url(${t.cover})`;
+      dom.barArt.style.backgroundSize = 'cover';
+      dom.barArt.style.backgroundPosition = 'center';
     }
-    saveLibrary();
-    setYouTubeStatus('', '');
   }
 
   // Última comprobación antes de asignar src — evita AbortError por llamadas concurrentes
@@ -1592,6 +1586,7 @@ async function playTrack(index) {
       }
       // El formato m4a (pedido en main.js como primera opción) evita el silencio
       // falso de webm/opus en Chromium. No se necesita detector adicional.
+      prefetchNextTrack(); // ← precarga la siguiente pista de la cola en segundo plano
     })
     .catch(err => { hideLoading(); showToast('Error cargando el stream.'); console.error(err); });
 }
@@ -1793,9 +1788,7 @@ function openSettingsModal() {
   dom.settingShowDuration.checked = settings.showDuration !== false;
   dom.settingSpinArt.checked = settings.spinArt !== false;
   dom.settingAutoLyrics.checked = !!settings.autoLyrics;
-  dom.settingLyricsSize.value = settings.lyricsSize || 13;
-  dom.settingLyricsSizeVal.textContent = (settings.lyricsSize || 13) + 'px';
-  if (dom.settingLyricsFont) dom.settingLyricsFont.value = settings.lyricsFont || 'inherit';
+  // lyricsSize y lyricsFont se gestionan ahora desde el panel de personalización
   dom.settingMinimizeTray.checked = settings.minimizeTray !== false;
   dom.settingCloseTray.checked = settings.closeTray !== false;
   // Color picks
@@ -1816,8 +1809,7 @@ function saveSettingsFromModal() {
   settings.spinArt   = dom.settingSpinArt.checked;
   settings.accentColor = activeColor ? activeColor.dataset.color : '#ffffff';
   settings.autoLyrics = dom.settingAutoLyrics.checked;
-  settings.lyricsSize = parseInt(dom.settingLyricsSize.value);
-  settings.lyricsFont = dom.settingLyricsFont ? dom.settingLyricsFont.value : 'inherit';
+  // lyricsSize y lyricsFont se gestionan desde el panel de personalización (no del modal)
   settings.minimizeTray = dom.settingMinimizeTray.checked;
   settings.closeTray = dom.settingCloseTray.checked;
   saveSettings();
@@ -2009,10 +2001,9 @@ function renderFavoritesUI() {
     const el = buildTrackItem(t, i, {
       context: 'favorites',
       onPlay: () => {
-        if (!queue.find(q => q.id === t.id)) queue.push({ ...t });
-        const qi = queue.findIndex(q => q.id === t.id);
+        queue = favTracks.map(ft => ({ ...ft }));
         updateQueueUI();
-        playTrack(qi);
+        playTrack(i);
       },
     });
     dom.favoritesList.appendChild(el);
@@ -3452,6 +3443,100 @@ if (_volNumInput) {
       if (fsizeVal) fsizeVal.textContent = px + 'px';
       if (!settings.theme) settings.theme = {};
       settings.theme['--base-font-size'] = px + 'px'; // guardamos px para compatibilidad
+      clearTimeout(_saveThemeTimer);
+      _saveThemeTimer = setTimeout(() => saveSettings(), 400);
+    });
+  }
+
+  /* LYRICS FONT */
+  const lyricsFont = document.getElementById('tp-lyrics-font');
+
+  function applyLyricsFontValue(value) {
+    settings.lyricsFont = value;
+    // Aplicar al panel de lyrics activo
+    document.querySelectorAll('.lyrics-text').forEach(lt => {
+      lt.style.fontFamily = value === 'inherit' ? '' : value;
+    });
+    saveSettings();
+  }
+
+  if (lyricsFont) {
+    (async () => {
+      let systemFonts = [];
+      try {
+        systemFonts = await window.nofuf.getSystemFonts();
+      } catch(e) {
+        console.warn('[fonts] No se pudieron leer fuentes del sistema:', e);
+      }
+
+      lyricsFont.innerHTML = '';
+
+      // Opción por defecto
+      const defOpt = document.createElement('option');
+      defOpt.value = 'inherit';
+      defOpt.dataset.family = 'inherit';
+      defOpt.textContent = 'DM Sans (por defecto)';
+      lyricsFont.appendChild(defOpt);
+
+      // Grupo fuentes de la app
+      const grpApp = document.createElement('optgroup');
+      grpApp.label = '── App ──';
+      DEFAULT_FONTS.forEach(({ label, value }) => {
+        const opt = document.createElement('option');
+        opt.value = label;
+        opt.dataset.family = value;
+        opt.textContent = label;
+        grpApp.appendChild(opt);
+      });
+      lyricsFont.appendChild(grpApp);
+
+      // Grupo fuentes del sistema
+      if (systemFonts.length) {
+        const appNames = new Set(DEFAULT_FONTS.map(f => f.label.toLowerCase()));
+        const filtered = systemFonts.filter(f => !appNames.has(f.toLowerCase()));
+        if (filtered.length) {
+          const grpSys = document.createElement('optgroup');
+          grpSys.label = '── Sistema ──';
+          filtered.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.dataset.family = `'${name}',sans-serif`;
+            opt.textContent = name;
+            grpSys.appendChild(opt);
+          });
+          lyricsFont.appendChild(grpSys);
+        }
+      }
+
+      // Restaurar fuente guardada
+      const savedLyricsFont = settings.lyricsFont || 'inherit';
+      const allOpts = Array.from(lyricsFont.querySelectorAll('option'));
+      const match = allOpts.find(o => o.dataset.family === savedLyricsFont || o.value === savedLyricsFont);
+      if (match) lyricsFont.value = match.value;
+    })();
+
+    lyricsFont.addEventListener('change', () => {
+      const selected = lyricsFont.options[lyricsFont.selectedIndex];
+      const cssFamily = selected?.dataset?.family || lyricsFont.value;
+      applyLyricsFontValue(cssFamily);
+    });
+  }
+
+  /* LYRICS FONT SIZE */
+  const lyricsSize = document.getElementById('tp-lyrics-size');
+  const lyricsSizeVal = document.getElementById('tp-lyrics-size-val');
+  if (lyricsSize) {
+    // Restaurar valor guardado
+    const savedSize = settings.lyricsSize || 13;
+    lyricsSize.value = savedSize;
+    if (lyricsSizeVal) lyricsSizeVal.textContent = savedSize + 'px';
+
+    lyricsSize.addEventListener('input', () => {
+      const px = parseInt(lyricsSize.value) || 13;
+      if (lyricsSizeVal) lyricsSizeVal.textContent = px + 'px';
+      settings.lyricsSize = px;
+      document.documentElement.style.setProperty('--lyrics-font-size', px + 'px');
+      document.querySelectorAll('.lyrics-text').forEach(lt => { lt.style.fontSize = px + 'px'; });
       clearTimeout(_saveThemeTimer);
       _saveThemeTimer = setTimeout(() => saveSettings(), 400);
     });
