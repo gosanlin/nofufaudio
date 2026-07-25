@@ -112,7 +112,7 @@ Every visual aspect is adjustable from the theme panel:
 
 ```bash
 # 1. Download and extract the zip
-unzip linux-portable-nofufaudio-1.0.6.zip
+unzip linux-portable-nofufaudio-1.3.4.zip
 cd nofufaudio
 
 # 2. Run the installer (no sudo needed — installs to ~/.local)
