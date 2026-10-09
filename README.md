@@ -67,7 +67,7 @@ Dedicated effects panel with four presets and full manual control:
 
 | Control | Range | What it does |
 |---|---|---|
-| **Speed** | 0.1× – 2.0× | Changes playback speed without affecting pitch |
+| **Reverb** | 0% – 100% | Adds reverberation to your music |
 | **Pitch** | −12 to +12 st | Raises or lowers the pitch independently of speed |
 | **Treble boost** | adjustable | Adds the characteristic nightcore brightness |
 
@@ -225,7 +225,7 @@ Panel de efectos dedicado con cuatro presets y control manual completo:
 
 | Control | Rango | Qué hace |
 |---|---|---|
-| **Velocidad** | 0.1× – 2.0× | Cambia la velocidad de reproducción sin afectar al tono |
+| **Reverb** | 0% – 100% | Añade un efecto de reverberacion a tu musica |
 | **Pitch** | −12 a +12 st | Sube o baja el tono de forma independiente a la velocidad |
 | **Realce de agudos** | ajustable | Añade el brillo característico del nightcore |
 
