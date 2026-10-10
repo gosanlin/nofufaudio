@@ -113,7 +113,7 @@ Every visual aspect is adjustable from the theme panel:
 
 ```bash
 # 1. Download and extract the zip
-unzip linux-portable-nofufaudio-1.4.1.zip
+unzip linux-portable-nofufaudio.zip
 cd nofufaudio
 
 # 2. Run the installer (no sudo needed — installs to ~/.local)
@@ -271,7 +271,7 @@ Cada aspecto visual es ajustable desde el panel de temas:
 
 ```bash
 # 1. Descarga y extrae el zip
-unzip linux-portable-nofufaudio-1.4.1.zip
+unzip linux-portable-nofufaudio.zip
 cd nofufaudio
 
 # 2. Ejecuta el instalador (no necesita sudo — instala en ~/.local)
