@@ -136,7 +136,7 @@ bash ~/.local/share/nofufaudio/install.sh --remove
 
 ### Windows
 
-Run **NofufAudio Setup 1.0.0.exe**, or launch **NofufAudio.exe** from the portable version.
+Simply launch **NofufAudio.exe** from the portable version.
 
 ---
 
