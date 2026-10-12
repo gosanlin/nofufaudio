@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="logonofu.png" width="128" alt="NofufAudio logo" />
+<img src="resources/app/build/icons/logonofuaudio_alt.png" width="128" alt="NofufAudio logo" />
 
 # NofufAudio
 
