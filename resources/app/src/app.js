@@ -340,9 +340,6 @@ const dom = {
   urlInput:       document.getElementById('url-input'),
   urlAddBtn:      document.getElementById('url-add-btn'),
   urlStatus:      document.getElementById('url-status'),
-  spUrlInput:     document.getElementById('sp-url-input'),
-  spUrlAddBtn:    document.getElementById('sp-url-add-btn'),
-  spUrlStatus:    document.getElementById('sp-url-status'),
   ytSearchInput:  document.getElementById('yt-search-input'),
   ytSearchClear:  document.getElementById('yt-search-clear'),
   ytSearchPanel:  document.getElementById('yt-search-panel'),
@@ -922,8 +919,6 @@ function setupEventListeners() {
 
   dom.urlAddBtn.addEventListener('click', handleYouTubeAdd);
   dom.urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleYouTubeAdd(); });
-  dom.spUrlAddBtn.addEventListener('click', handleSpotifyAdd);
-  dom.spUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleSpotifyAdd(); });
 
   dom.btnPlay.addEventListener('click', togglePlay);
   dom.btnNext.addEventListener('click', playNext);
@@ -1513,12 +1508,41 @@ function extractSpotifyPlaylistId(url) {
   } catch { return null; }
 }
 
+function isDeezerPlaylistUrl(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./i,'');
+    return host === 'deezer.com' && u.pathname.includes('/playlist/');
+  } catch { return false; }
+}
+
+function extractDeezerPlaylistId(url) {
+  try {
+    const u = new URL(url);
+    const m = u.pathname.match(/\/playlist\/(\d+)/);
+    if (m) return m[1];
+    const parts = u.pathname.split('/').filter(Boolean);
+    const idx = parts.indexOf('playlist');
+    return idx !== -1 ? parts[idx + 1] : null;
+  } catch { return null; }
+}
+
 async function handleYouTubeAdd() {
   const url = dom.urlInput.value.trim();
   if (!url) return;
 
   if (isYouTubePlaylistUrl(url)) {
     await handleYouTubePlaylistImport(url);
+    return;
+  }
+
+  if (isSpotifyPlaylistUrl(url)) {
+    await handleSpotifyPlaylistImport(url);
+    return;
+  }
+
+  if (isDeezerPlaylistUrl(url)) {
+    await handleDeezerPlaylistImport(url);
     return;
   }
 
@@ -1562,21 +1586,7 @@ async function handleYouTubeAdd() {
   setTimeout(() => setYouTubeStatus('', ''), 3000);
 }
 
-async function handleSpotifyAdd() {
-  const url = dom.spUrlInput.value.trim();
-  if (!url) return;
-  if (!isSpotifyPlaylistUrl(url)) {
-    setSpotifyStatus('error', 'Introduce una URL de playlist de Spotify válida.');
-    return;
-  }
-  await handleSpotifyPlaylistImport(url);
-}
-
-function setSpotifyStatus(type, msg) {
-  if (window.i18n && window.i18n.T && msg) msg = window.i18n.T(msg);
-  dom.spUrlStatus.className = `url-status ${type}`;
-  dom.spUrlStatus.textContent = msg;
-}
+function setSpotifyStatus(type, msg) { setYouTubeStatus(type, msg); }
 
 async function handleSpotifyPlaylistImport(url) {
   const playlistId = extractSpotifyPlaylistId(url);
@@ -1585,8 +1595,8 @@ async function handleSpotifyPlaylistImport(url) {
     return;
   }
 
-  dom.spUrlAddBtn.disabled = true;
-  dom.spUrlInput.value = '';
+  dom.urlAddBtn.disabled = true;
+  dom.urlInput.value = '';
   setSpotifyStatus('loading', 'Conectando con Spotify…');
   showLoading('Importando playlist de Spotify…');
 
@@ -1597,7 +1607,7 @@ async function handleSpotifyPlaylistImport(url) {
     result = { type: 'error', message: e.message };
   }
 
-  dom.spUrlAddBtn.disabled = false;
+  dom.urlAddBtn.disabled = false;
   hideLoading();
 
   if (!result || result.type === 'error') {
@@ -1665,6 +1675,97 @@ async function handleSpotifyPlaylistImport(url) {
   setSpotifyStatus('success', `✓ ${pl.tracks.length} canciones importadas`);
   showToast(`"${playlistTitle}" importada · ${pl.tracks.length} canciones`);
   setTimeout(() => setSpotifyStatus('', ''), 6000);
+  openPlaylist(pl.id);
+
+  preResolveSpotifyTracks(newTracks, pl.id);
+}
+
+async function handleDeezerPlaylistImport(url) {
+  const playlistId = extractDeezerPlaylistId(url);
+  if (!playlistId) {
+    setYouTubeStatus('error', 'URL de Deezer inválida.');
+    return;
+  }
+
+  dom.urlAddBtn.disabled = true;
+  dom.urlInput.value = '';
+  setYouTubeStatus('loading', 'Conectando con Deezer…');
+  showLoading('Importando playlist de Deezer…');
+
+  let result;
+  try {
+    result = await window.nofuf.importDeezerPlaylist(playlistId);
+  } catch(e) {
+    result = { type: 'error', message: e.message };
+  }
+
+  dom.urlAddBtn.disabled = false;
+  hideLoading();
+
+  if (!result || result.type === 'error') {
+    setYouTubeStatus('error', result?.message || 'No se pudo importar la playlist.');
+    showToast('⚠ No se pudo importar la playlist');
+    return;
+  }
+
+  const { playlistTitle, tracks: dzTracks } = result;
+
+  if (!dzTracks?.length) {
+    setYouTubeStatus('error', 'No se encontraron canciones. ¿La playlist es pública?');
+    showToast('⚠ Playlist vacía o privada');
+    return;
+  }
+
+  setYouTubeStatus('loading', `Importando ${dzTracks.length} canciones…`);
+
+  const pl = {
+    id:     'dz-pl-' + playlistId + '-' + Date.now(),
+    name:   playlistTitle,
+    cover:  null,
+    tracks: [],
+  };
+
+  const firstWithCover = dzTracks.find(t => t.cover);
+  if (firstWithCover?.cover) {
+    const candidates = dzTracks.filter(t => t.cover).slice(0, 3);
+    for (const c of candidates) {
+      try {
+        const img = await window.nofuf.fetchImageBase64(c.cover).catch(() => null);
+        if (img) { pl.cover = img; break; }
+      } catch (_) {}
+    }
+  }
+
+  const newTracks = [];
+  for (const dz of dzTracks) {
+    const track = {
+      id:        'dz-' + dz.id + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      type:      'youtube',
+      title:     dz.title,
+      artist:    dz.artist,
+      album:     dz.album || '',
+      duration:  dz.duration || 0,
+      cover:     dz.cover || null,
+      url:       '',
+      ytUrl:     '',
+      videoId:   '',
+      thumbnail: dz.cover || '',
+      lazy:      true,
+      spMeta:    { title: dz.title, artist: dz.artist },
+    };
+    newTracks.push(track);
+    pl.tracks.push(track.id);
+  }
+
+  addTracksToLibrary(newTracks);
+  playlists.push(pl);
+  savePlaylists();
+  renderSidebarPlaylists();
+  renderLibraryUI();
+
+  setYouTubeStatus('success', `✓ ${pl.tracks.length} canciones importadas`);
+  showToast(`"${playlistTitle}" importada · ${pl.tracks.length} canciones`);
+  setTimeout(() => setYouTubeStatus('', ''), 6000);
   openPlaylist(pl.id);
 
   preResolveSpotifyTracks(newTracks, pl.id);

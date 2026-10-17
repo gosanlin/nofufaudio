@@ -1480,6 +1480,90 @@ ipcMain.handle('import-spotify-playlist', async (_, playlistId) => {
   }
 });
 
+ipcMain.handle('import-deezer-playlist', async (_, playlistId) => {
+  try {
+    if (!playlistId) return { type: 'error', message: 'Falta ID de playlist de Deezer.' };
+
+    const infoRes = await fetchUrlJson(`https://api.deezer.com/playlist/${encodeURIComponent(playlistId)}`);
+    if (!infoRes.ok || !infoRes.data) {
+      return { type: 'error', message: 'No se pudo obtener la playlist de Deezer.' };
+    }
+    const playlistTitle = infoRes.data.title || 'Playlist de Deezer';
+
+    const tracks = [];
+    const seen = new Set();
+    let url = `https://api.deezer.com/playlist/${encodeURIComponent(playlistId)}/tracks?limit=100`;
+    let guard = 0;
+    while (url && guard < 1000) {
+      guard++;
+      const r = await fetchUrlJson(url);
+      if (!r.ok || !r.data?.data?.length) break;
+      for (const t of r.data.data) {
+        if (!t || !t.title) continue;
+        if (seen.has(t.id)) continue;
+        seen.add(t.id);
+        const artist = (t.artist && t.artist.name) ? t.artist.name : '';
+        const album = (t.album && t.album.title) ? t.album.title : '';
+        const alb = t.album || {};
+        const cover = alb.cover_medium || alb.cover_big || alb.cover_xl || alb.cover || '';
+        tracks.push({
+          id:       String(t.id || t.title),
+          title:    t.title,
+          artist:   artist,
+          album:    album,
+          cover:    (typeof cover === 'string' && cover.startsWith('http')) ? cover : '',
+          duration: t.duration || 0,
+        });
+      }
+      url = r.data.next || null;
+      if (!url) break;
+    }
+
+    // If next-link pagination stopped early but total indicates more, try index-based
+    const total = infoRes.data?.nb_tracks || infoRes.data?.tracks?.total || 0;
+    if (total && tracks.length < total) {
+      let idx = tracks.length;
+      while (idx < total && idx < total + 100) {
+        const r = await fetchUrlJson(`https://api.deezer.com/playlist/${encodeURIComponent(playlistId)}/tracks?limit=100&index=${idx}`);
+        if (!r.ok || !r.data?.data?.length) break;
+        let added = 0;
+        for (const t of r.data.data) {
+          if (!t || !t.title) continue;
+          if (seen.has(t.id)) continue;
+          seen.add(t.id);
+          const artist = (t.artist && t.artist.name) ? t.artist.name : '';
+          const album = (t.album && t.album.title) ? t.album.title : '';
+          const alb = t.album || {};
+          const cover = alb.cover_medium || alb.cover_big || alb.cover_xl || alb.cover || '';
+          tracks.push({
+            id:       String(t.id || t.title),
+            title:    t.title,
+            artist:   artist,
+            album:    album,
+            cover:    (typeof cover === 'string' && cover.startsWith('http')) ? cover : '',
+            duration: t.duration || 0,
+          });
+          added++;
+        }
+        idx += r.data.data.length;
+        if (r.data.data.length < 100) break;
+        if (added === 0) break;
+      }
+    }
+
+    if (!tracks.length) {
+      return { type: 'error', message: 'La playlist está vacía o no tiene canciones accesibles.' };
+    }
+
+    console.log(`[dz-import] "${playlistTitle}" — ${tracks.length} canciones listas (total reportado: ${total})`);
+    return { type: 'success', playlistTitle, tracks };
+
+  } catch (e) {
+    console.error('[dz-import]', e);
+    return { type: 'error', message: `Error: ${e.message}` };
+  }
+});
+
 function fetchUrlJson(url, extraHeaders = {}, parseJson = true) {
   return new Promise((resolve) => {
     const client = url.startsWith('https') ? https : http;

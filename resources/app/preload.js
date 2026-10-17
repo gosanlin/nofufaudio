@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('nofuf', {
   getSpotifyArtist:          (artistId)       => ipcRenderer.invoke('get-spotify-artist', artistId),
   getSpotifyAlbum:           (albumId)        => ipcRenderer.invoke('get-spotify-album', albumId),
   importSpotifyPlaylist:     (id)             => ipcRenderer.invoke('import-spotify-playlist', id),
+  importDeezerPlaylist:      (id)             => ipcRenderer.invoke('import-deezer-playlist', id),
   resolveSpotifyToYouTube:   (title, artist)  => ipcRenderer.invoke('resolve-spotify-to-youtube', { title, artist }),
 
   resolveYouTube:         (url) => ipcRenderer.invoke('resolve-youtube', url),
